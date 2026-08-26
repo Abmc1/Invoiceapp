@@ -19,7 +19,10 @@ import {
   createReplacementInvoiceAction,
   deleteDraftInvoiceAction,
   recordPaymentAction,
+  setInvoiceArchivedAction,
 } from "../actions";
+
+const ARCHIVABLE_STATUSES = new Set(["PAID", "VOID", "CANCELLED"]);
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,6 +35,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const boundReplace = createReplacementInvoiceAction.bind(null, invoice.id);
   const boundDelete = deleteDraftInvoiceAction.bind(null, invoice.id);
   const boundRecordPayment = recordPaymentAction.bind(null, invoice.id);
+  const boundSetArchived = setInvoiceArchivedAction.bind(null, invoice.id, !invoice.archived);
 
   return (
     <div className="space-y-6">
@@ -41,6 +45,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             <h1 className="font-display text-2xl">{invoice.invoiceNumber}</h1>
             <InvoiceStatusBadge status={invoice.status} dueDate={invoice.dueDate} />
             {invoice.vatExempt ? <Badge variant="muted">VAT Exempt</Badge> : null}
+            {invoice.archived ? <Badge variant="muted">Archived</Badge> : null}
           </div>
           <p className="text-sm text-muted-foreground">
             <Link href={`/clients/${invoice.client.id}`} className="text-brand hover:underline">
@@ -84,6 +89,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           {invoice.status === "VOID" ? (
             <form action={boundReplace}>
               <SubmitButton pendingText="Creating…">Create Replacement</SubmitButton>
+            </form>
+          ) : null}
+
+          {ARCHIVABLE_STATUSES.has(invoice.status) ? (
+            <form action={boundSetArchived}>
+              <SubmitButton variant="ghost" pendingText={invoice.archived ? "Unarchiving…" : "Archiving…"}>
+                {invoice.archived ? "Unarchive" : "Archive"}
+              </SubmitButton>
             </form>
           ) : null}
         </div>

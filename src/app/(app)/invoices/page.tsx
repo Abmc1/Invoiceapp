@@ -4,9 +4,11 @@ import { clientDisplayName } from "@/lib/services/clients";
 import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { InvoiceStatusBadge } from "@/components/invoices/status-badge";
+import { ArchiveInvoiceButton } from "@/components/invoices/archive-invoice-button";
 
 const STATUS_TABS: Array<{ value: string; label: string }> = [
   { value: "ALL", label: "All" },
@@ -18,6 +20,8 @@ const STATUS_TABS: Array<{ value: string; label: string }> = [
   { value: "VOID", label: "Void / Cancelled" },
 ];
 
+const ARCHIVABLE_STATUSES = new Set(["PAID", "VOID", "CANCELLED"]);
+
 export default async function InvoicesPage({
   searchParams,
 }: {
@@ -28,12 +32,14 @@ export default async function InvoicesPage({
   const search = typeof params.q === "string" ? params.q : "";
   const dateFrom = typeof params.from === "string" ? params.from : "";
   const dateTo = typeof params.to === "string" ? params.to : "";
+  const includeArchived = params.archived === "1";
 
   const filters: InvoiceListFilters = {
     status: status === "ALL" ? "ALL" : (status as InvoiceListFilters["status"]),
     search: search || undefined,
     dateFrom: dateFrom ? new Date(dateFrom) : undefined,
     dateTo: dateTo ? new Date(dateTo) : undefined,
+    includeArchived,
   };
 
   const rows = await listInvoices(filters);
@@ -54,7 +60,7 @@ export default async function InvoicesPage({
         {STATUS_TABS.map((tab) => (
           <Link
             key={tab.value}
-            href={`/invoices?status=${tab.value}`}
+            href={`/invoices?status=${tab.value}${includeArchived ? "&archived=1" : ""}`}
             className={`rounded-full px-3 py-1.5 text-sm font-medium border ${
               status === tab.value ? "bg-brand text-brand-foreground border-brand" : "border-border hover:bg-surface-muted"
             }`}
@@ -73,6 +79,10 @@ export default async function InvoicesPage({
             </div>
             <Input type="date" name="from" defaultValue={dateFrom} aria-label="From date" />
             <Input type="date" name="to" defaultValue={dateTo} aria-label="To date" />
+            <label className="flex items-center gap-2 text-sm h-10">
+              <input type="checkbox" name="archived" value="1" defaultChecked={includeArchived} className="size-4" />
+              Show archived
+            </label>
             <Button type="submit" variant="outline">
               Filter
             </Button>
@@ -89,12 +99,13 @@ export default async function InvoicesPage({
             <TableHead>Due Date</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Amount</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                 No invoices match these filters.
               </TableCell>
             </TableRow>
@@ -110,9 +121,17 @@ export default async function InvoicesPage({
                 <TableCell>{invoice.issueDate.toLocaleDateString("en-IE")}</TableCell>
                 <TableCell>{invoice.dueDate.toLocaleDateString("en-IE")}</TableCell>
                 <TableCell>
-                  <InvoiceStatusBadge status={invoice.status} dueDate={invoice.dueDate} />
+                  <div className="flex items-center gap-1.5">
+                    <InvoiceStatusBadge status={invoice.status} dueDate={invoice.dueDate} />
+                    {invoice.archived ? <Badge variant="muted">Archived</Badge> : null}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">{formatMoney(invoice.total, invoice.currency)}</TableCell>
+                <TableCell className="text-right">
+                  {ARCHIVABLE_STATUSES.has(invoice.status) ? (
+                    <ArchiveInvoiceButton invoiceId={invoice.id} archived={invoice.archived} />
+                  ) : null}
+                </TableCell>
               </TableRow>
             ))
           )}

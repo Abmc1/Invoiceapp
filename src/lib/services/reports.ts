@@ -215,6 +215,7 @@ export async function recentInvoices(limit = 8) {
     .select({ invoice: invoices, client: clients })
     .from(invoices)
     .innerJoin(clients, eq(invoices.clientId, clients.id))
+    .where(eq(invoices.archived, false))
     .orderBy(desc(invoices.createdAt))
     .limit(limit);
 }

@@ -255,6 +255,14 @@ export const invoices = pgTable("invoices", {
 
   sentAt: timestamp("sent_at", { withTimezone: true }),
 
+  /**
+   * Hides a resolved invoice from the default list/dashboard views without
+   * touching the financial record — reports, exports and totals always
+   * include archived invoices, only the day-to-day worklist views hide
+   * them. Purely a declutter mechanism, never a data-integrity one.
+   */
+  archived: boolean("archived").notNull().default(false),
+
   createdByUserId: uuid("created_by_user_id").references(() => users.id),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

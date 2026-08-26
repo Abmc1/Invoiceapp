@@ -11,6 +11,7 @@ import {
   voidInvoice,
   createReplacementInvoice,
   deleteDraftInvoice,
+  setInvoiceArchived,
   type LineItemDraft,
 } from "@/lib/services/invoices";
 import { recordPayment, type PaymentMethod } from "@/lib/services/payments";
@@ -103,6 +104,14 @@ export async function voidInvoiceAction(invoiceId: string, formData: FormData) {
   await voidInvoice(invoiceId, user.id, reason);
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${invoiceId}`);
+}
+
+export async function setInvoiceArchivedAction(invoiceId: string, archived: boolean) {
+  const user = await requireUser();
+  await setInvoiceArchived(invoiceId, archived, user.id);
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/dashboard");
 }
 
 export async function createReplacementInvoiceAction(invoiceId: string) {

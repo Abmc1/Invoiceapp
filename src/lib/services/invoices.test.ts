@@ -10,6 +10,8 @@ import {
   isInvoiceOverdue,
   daysOverdue,
   deleteDraftInvoice,
+  setInvoiceArchived,
+  listInvoices,
 } from "./invoices";
 import { recordPayment } from "./payments";
 
@@ -364,6 +366,67 @@ describe("VAT exemption", () => {
 
     expect(updated.vatExempt).toBe(true);
     expect(updated.taxTotal).toBe("0.00");
+  });
+});
+
+describe("archiving", () => {
+  it("rejects archiving an invoice that is still owed", async () => {
+    const { user, client } = await makeInvoiceInputs();
+    const invoice = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 500 }],
+      createdByUserId: user.id,
+    });
+    await finalizeInvoice(invoice.id, user.id);
+
+    await expect(setInvoiceArchived(invoice.id, true, user.id)).rejects.toThrow(/paid, void or cancelled/i);
+  });
+
+  it("allows archiving a paid invoice, and it disappears from the default list", async () => {
+    const { user, client } = await makeInvoiceInputs();
+    const invoice = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 500 }],
+      createdByUserId: user.id,
+    });
+    await finalizeInvoice(invoice.id, user.id);
+    await recordPayment({ invoiceId: invoice.id, amount: 500, paymentDate: new Date(), paymentMethod: "CARD", recordedByUserId: user.id });
+
+    const archived = await setInvoiceArchived(invoice.id, true, user.id);
+    expect(archived.archived).toBe(true);
+
+    const defaultList = await listInvoices();
+    expect(defaultList.find((r) => r.invoice.id === invoice.id)).toBeUndefined();
+
+    const withArchived = await listInvoices({ includeArchived: true });
+    expect(withArchived.find((r) => r.invoice.id === invoice.id)).toBeDefined();
+  });
+
+  it("can be unarchived", async () => {
+    const { user, client } = await makeInvoiceInputs();
+    const invoice = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 500 }],
+      createdByUserId: user.id,
+    });
+    await finalizeInvoice(invoice.id, user.id);
+    await voidInvoice(invoice.id, user.id, "test");
+
+    await setInvoiceArchived(invoice.id, true, user.id);
+    const unarchived = await setInvoiceArchived(invoice.id, false, user.id);
+    expect(unarchived.archived).toBe(false);
+
+    const defaultList = await listInvoices();
+    expect(defaultList.find((r) => r.invoice.id === invoice.id)).toBeDefined();
   });
 });
 

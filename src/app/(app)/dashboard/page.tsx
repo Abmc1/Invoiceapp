@@ -60,7 +60,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
-        <StatCard label="Draft" value={String(summary.draftCount)} />
+        <StatCard label="Draft" value={String(summary.draftCount)} hint="Not yet sent — doesn't count as revenue" />
         <StatCard label="Sent" value={String(summary.sentCount)} />
         <StatCard label="Partially Paid" value={String(summary.partiallyPaidCount)} />
         <StatCard label="Paid" value={String(summary.paidCount)} />

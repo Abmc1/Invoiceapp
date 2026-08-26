@@ -318,6 +318,8 @@ export interface InvoiceListFilters {
   clientId?: string;
   dateFrom?: Date;
   dateTo?: Date;
+  /** When false (default), archived invoices are hidden. When true, both archived and active are shown. */
+  includeArchived?: boolean;
 }
 
 /**
@@ -340,6 +342,7 @@ export async function listInvoices(filters: InvoiceListFilters = {}) {
   if (filters.clientId) conditions.push(eq(invoices.clientId, filters.clientId));
   if (filters.dateFrom) conditions.push(gte(invoices.issueDate, filters.dateFrom));
   if (filters.dateTo) conditions.push(lte(invoices.issueDate, filters.dateTo));
+  if (!filters.includeArchived) conditions.push(eq(invoices.archived, false));
   if (filters.search) {
     const term = `%${filters.search}%`;
     conditions.push(
@@ -394,10 +397,43 @@ export async function listOverdueInvoices() {
     .select({ invoice: invoices, client: clients })
     .from(invoices)
     .innerJoin(clients, eq(invoices.clientId, clients.id))
-    .where(overdueExpr)
+    .where(and(overdueExpr, eq(invoices.archived, false)))
     .orderBy(invoices.dueDate);
 
   return rows.sort((a, b) => a.invoice.dueDate.getTime() - b.invoice.dueDate.getTime());
+}
+
+const ARCHIVABLE_STATUSES = new Set(["PAID", "VOID", "CANCELLED"]);
+
+/**
+ * Archiving is restricted to resolved invoices (Paid/Void/Cancelled) —
+ * enforced here, not just by hiding the button in the UI — so an archived
+ * invoice can never be one that's still owed. Purely hides it from the
+ * default worklist views; reports and exports always include it.
+ */
+export async function setInvoiceArchived(invoiceId: string, archived: boolean, userId: string) {
+  return db.transaction(async (tx) => {
+    const [existing] = await tx.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+    if (!existing) throw new Error("Invoice not found.");
+    if (archived && !ARCHIVABLE_STATUSES.has(existing.status)) {
+      throw new Error("Only paid, void or cancelled invoices can be archived.");
+    }
+
+    const [updated] = await tx
+      .update(invoices)
+      .set({ archived, updatedAt: new Date() })
+      .where(eq(invoices.id, invoiceId))
+      .returning();
+
+    await recordAuditLog(tx, {
+      userId,
+      entityType: "invoice",
+      entityId: invoiceId,
+      action: archived ? "ARCHIVED" : "UNARCHIVED",
+    });
+
+    return updated;
+  });
 }
 
 export async function deleteDraftInvoice(invoiceId: string, userId: string) {
