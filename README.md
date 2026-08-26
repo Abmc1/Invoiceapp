@@ -101,7 +101,7 @@ npm run dev
 
 Open http://localhost:3000 and sign in with the seeded development admin account printed by `db:seed` (default `a.burkemccarthy@motivaction.ie` unless overridden — **change the password immediately in a real deployment**, via Settings → Account once logged in).
 
-**Every login requires a second factor**: after the correct password, a 6-digit code is emailed and must be entered on the following screen before a session is created. With the default `EMAIL_PROVIDER=mock`, that code isn't actually emailed — it's printed to the `npm run dev` terminal output instead (look for `[email:mock] --- text body ---`). Configure real SMTP (see [Email configuration](#email-configuration)) to have it arrive by email instead — including via Gmail, which this is set up for out of the box.
+**Every login requires a second factor**: after the correct password, a 6-digit code is emailed and must be entered on the following screen before a session is created. With the default `EMAIL_PROVIDER=mock`, that code isn't actually emailed — it's printed to the `npm run dev` terminal output instead (look for `[email:mock] --- text body ---`). Configure real SMTP (see [Email configuration](#email-configuration)) to have it arrive by email instead — pre-configured for Microsoft 365, MotivAction's actual email provider.
 
 ## Environment variables
 
@@ -113,7 +113,7 @@ See [`.env.example`](.env.example) for the full list with comments. The essentia
 | `AUTH_SECRET` | Yes | Signs session cookies, at least 32 characters. Generate with `openssl rand -base64 32`. |
 | `APP_URL` | No | Public base URL, used in emails/links. |
 | `EMAIL_PROVIDER` | No | `mock` (default, logs to console) or `smtp`. Login 2FA codes need a real provider to actually be emailed. |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `EMAIL_FROM` | Only if `EMAIL_PROVIDER=smtp` | Pre-filled for Gmail (`smtp.gmail.com:587`) — see [Email configuration](#email-configuration). |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `EMAIL_FROM` | Only if `EMAIL_PROVIDER=smtp` | Pre-filled for Microsoft 365 (`smtp.office365.com:587`) — see [Email configuration](#email-configuration). |
 | `DB_POOL_MAX` | No | Postgres connection pool size, default 10. |
 | `CRON_SECRET` | **Yes in production** | Bearer token protecting `/api/cron/reminders` — the endpoint refuses all requests in production until this is set. |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` | No | Used only by `npm run db:seed`. |
@@ -228,22 +228,27 @@ Emails go through a small provider abstraction (`src/lib/email`):
 
 Adding a new provider (e.g. a provider-specific HTTP API) means implementing the small `EmailProvider` interface in `src/lib/email/provider.ts` — nothing else in the app needs to change.
 
-### Sending via Gmail
+### Sending via Microsoft 365 / Outlook
 
-`.env.example` is pre-filled with Gmail's SMTP host, so this is just filling in three values:
+MotivAction's email runs on Microsoft 365, so this is what's actually configured (`.env.local` and the Vercel deployment are already pointed at it):
 
-1. Turn on **2-Step Verification** on the Gmail account: [myaccount.google.com/security](https://myaccount.google.com/security)
-2. Create an **App Password**: [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (choose "Mail" / "Other")
-3. In `.env.local`:
-   ```bash
-   EMAIL_PROVIDER=smtp
-   SMTP_HOST=smtp.gmail.com
-   SMTP_PORT=587
-   SMTP_USER=youraddress@gmail.com
-   SMTP_PASSWORD=the-16-character-app-password
-   EMAIL_FROM="MotivAction <youraddress@gmail.com>"
-   ```
-   Use the **App Password**, not the normal Gmail password — Gmail's SMTP relay rejects the latter. Gmail also generally requires `EMAIL_FROM` to match (or be an alias of) the authenticated account, or it will silently override the From header.
+```bash
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_USER=a.burkemccarthy@motivaction.ie
+SMTP_PASSWORD=the-app-password-or-mailbox-password
+EMAIL_FROM="MotivAction <a.burkemccarthy@motivaction.ie>"
+```
+
+Getting `SMTP_PASSWORD` to actually work takes two things, both usually requiring a Microsoft 365 admin:
+
+1. **Authenticated SMTP (SMTP AUTH) must be enabled for this specific mailbox** — Microsoft has disabled it tenant-wide by default since 2022. In the Microsoft 365 admin center: **Users → Active users →** select the account **→ Mail tab → Manage email apps →** enable **"Authenticated SMTP"**.
+2. **If the account has MFA/Modern Auth enforced** (typical for a business account), `SMTP_PASSWORD` needs to be an **App Password**, not the normal sign-in password — create one at [mysignins.microsoft.com/security-info](https://mysignins.microsoft.com/security-info). If that page doesn't offer an app password option, the tenant's Conditional Access policy is blocking legacy SMTP AUTH outright, and an admin needs to carve out an exception for this mailbox (or a different sending method, like Microsoft Graph's API, is needed instead of SMTP).
+
+### Sending via Gmail (alternative)
+
+If a Google Workspace account is used instead: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, turn on 2-Step Verification and create an App Password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), and use that (not the normal password) as `SMTP_PASSWORD`.
 
 ## PDF generation
 

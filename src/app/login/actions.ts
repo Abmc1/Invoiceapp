@@ -14,6 +14,14 @@ import { getEmailProvider } from "@/lib/email";
 import { renderLoginOtpEmail } from "@/lib/email/templates";
 import { getCompanySettings } from "@/lib/services/settings";
 
+// 2FA is currently disabled — MotivAction's Microsoft 365 mailbox isn't yet
+// configured to actually send the code (see README > Email configuration),
+// which made the OTP step a dead end rather than a security improvement.
+// The OTP infrastructure below (createLoginOtp/verifyLoginOtp, the
+// /login/verify page, the pending-2FA cookie) is left in place — flip this
+// back to `true` once SMTP is working to re-enable it with no other changes.
+const TWO_FACTOR_ENABLED = false;
+
 export interface LoginState {
   error?: string;
 }
@@ -61,6 +69,12 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   }
 
   resetRateLimit(`login:email:${email}`);
+
+  if (!TWO_FACTOR_ENABLED) {
+    await createSession(user.id);
+    await recordAuditLog(db, { userId: user.id, entityType: "auth", entityId: email, action: "LOGIN_SUCCESS", newValues: { ip } });
+    redirect(safeRedirectPath(redirectTo));
+  }
 
   const code = await createLoginOtp(user.id);
   const settings = await getCompanySettings();
