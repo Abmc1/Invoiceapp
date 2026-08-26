@@ -16,9 +16,11 @@ export function ClientForm({
 }) {
   return (
     <form action={action} className="space-y-6">
+      <p className="text-xs text-muted-foreground">Fields marked * are required.</p>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="clientType">Client Type</Label>
+          <Label htmlFor="clientType">Client Type *</Label>
           <Select id="clientType" name="clientType" defaultValue={defaultValues?.clientType ?? "BUSINESS"} required>
             <option value="BUSINESS">Business</option>
             <option value="ORGANISATION">Organisation</option>
@@ -26,8 +28,8 @@ export function ClientForm({
           </Select>
         </div>
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" defaultValue={defaultValues?.email ?? ""} />
+          <Label htmlFor="email">Email *</Label>
+          <Input id="email" name="email" type="email" defaultValue={defaultValues?.email ?? ""} required />
         </div>
       </div>
 
@@ -35,6 +37,7 @@ export function ClientForm({
         <div>
           <Label htmlFor="companyName">Company / Organisation Name</Label>
           <Input id="companyName" name="companyName" defaultValue={defaultValues?.companyName ?? ""} />
+          <p className="text-xs text-muted-foreground mt-1">Required for Business/Organisation clients.</p>
         </div>
         <div>
           <Label htmlFor="phone">Phone</Label>
@@ -54,17 +57,35 @@ export function ClientForm({
       </div>
 
       <fieldset className="space-y-4">
-        <legend className="text-sm font-medium mb-1">Billing Address</legend>
+        <legend className="text-sm font-medium mb-1">Billing Address *</legend>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input name="billingAddressLine1" placeholder="Address line 1" defaultValue={defaultValues?.billingAddressLine1 ?? ""} />
-          <Input name="billingAddressLine2" placeholder="Address line 2" defaultValue={defaultValues?.billingAddressLine2 ?? ""} />
+          <div>
+            <Label htmlFor="billingAddressLine1">Address line 1 *</Label>
+            <Input id="billingAddressLine1" name="billingAddressLine1" defaultValue={defaultValues?.billingAddressLine1 ?? ""} required />
+          </div>
+          <div>
+            <Label htmlFor="billingAddressLine2">Address line 2</Label>
+            <Input id="billingAddressLine2" name="billingAddressLine2" defaultValue={defaultValues?.billingAddressLine2 ?? ""} />
+          </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Input name="billingCity" placeholder="City" defaultValue={defaultValues?.billingCity ?? ""} />
-          <Input name="billingCounty" placeholder="County" defaultValue={defaultValues?.billingCounty ?? ""} />
-          <Input name="billingPostcode" placeholder="Postcode" defaultValue={defaultValues?.billingPostcode ?? ""} />
+          <div>
+            <Label htmlFor="billingCity">City *</Label>
+            <Input id="billingCity" name="billingCity" defaultValue={defaultValues?.billingCity ?? ""} required />
+          </div>
+          <div>
+            <Label htmlFor="billingCounty">County</Label>
+            <Input id="billingCounty" name="billingCounty" defaultValue={defaultValues?.billingCounty ?? ""} />
+          </div>
+          <div>
+            <Label htmlFor="billingPostcode">Postcode *</Label>
+            <Input id="billingPostcode" name="billingPostcode" defaultValue={defaultValues?.billingPostcode ?? ""} required />
+          </div>
         </div>
-        <Input name="billingCountry" placeholder="Country" defaultValue={defaultValues?.billingCountry ?? "Ireland"} />
+        <div>
+          <Label htmlFor="billingCountry">Country *</Label>
+          <Input id="billingCountry" name="billingCountry" defaultValue={defaultValues?.billingCountry ?? "Ireland"} required />
+        </div>
       </fieldset>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -83,6 +104,12 @@ export function ClientForm({
           />
         </div>
       </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="vatExempt" value="on" defaultChecked={defaultValues?.vatExempt ?? false} className="size-4" />
+        VAT exempt — new invoices to this client default to 0% VAT (e.g. overseas client, reverse charge, exempt
+        organisation). Can still be overridden per invoice.
+      </label>
 
       <div>
         <Label htmlFor="notes">Notes</Label>

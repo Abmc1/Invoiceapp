@@ -15,6 +15,7 @@ export interface ClientOption {
   id: string;
   label: string;
   defaultPaymentTermsDays: number | null;
+  vatExempt: boolean;
 }
 
 export interface ServiceOption {
@@ -80,6 +81,8 @@ export function InvoiceForm({
     currency: string;
     paymentTerms: string;
     notes: string;
+    vatExempt: boolean;
+    vatExemptReason: string;
     items: Array<{
       serviceId: string | null;
       description: string;
@@ -102,6 +105,19 @@ export function InvoiceForm({
       ? defaultValues.items.map((i) => ({ key: Math.random().toString(36).slice(2), ...i, serviceId: i.serviceId ?? "" }))
       : [emptyRow()]
   );
+  const [vatExempt, setVatExempt] = useState(
+    () => defaultValues?.vatExempt ?? clients.find((c) => c.id === (initialClientId ?? clients[0]?.id))?.vatExempt ?? false
+  );
+  const [vatExemptReason, setVatExemptReason] = useState(defaultValues?.vatExemptReason ?? "");
+
+  function handleClientChange(newClientId: string) {
+    setClientId(newClientId);
+    // Only auto-apply the client's default when creating fresh (no saved values yet) —
+    // never silently override a choice already made on an existing draft.
+    if (!defaultValues) {
+      setVatExempt(clients.find((c) => c.id === newClientId)?.vatExempt ?? false);
+    }
+  }
 
   const lineTotals = useMemo(
     () =>
@@ -110,10 +126,10 @@ export function InvoiceForm({
           quantity: row.quantity || 0,
           unitPrice: row.unitPrice || 0,
           discount: row.discount || 0,
-          taxRate: row.taxRate || 0,
+          taxRate: vatExempt ? 0 : row.taxRate || 0,
         })
       ),
-    [rows]
+    [rows, vatExempt]
   );
 
   const invoiceTotals = useMemo(
@@ -171,12 +187,14 @@ export function InvoiceForm({
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="itemsJson" value={itemsJson} />
+      <input type="hidden" name="vatExempt" value={vatExempt ? "on" : ""} />
+      <input type="hidden" name="vatExemptReason" value={vatExemptReason} />
 
       <Card>
         <CardContent className="p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <Label htmlFor="clientId">Client</Label>
-            <Select id="clientId" name="clientId" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+            <Select id="clientId" name="clientId" value={clientId} onChange={(e) => handleClientChange(e.target.value)} required>
               <option value="" disabled>
                 Select a client…
               </option>
@@ -202,6 +220,28 @@ export function InvoiceForm({
               <option value="GBP">GBP (£)</option>
               <option value="USD">USD ($)</option>
             </Select>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-4 space-y-2 rounded-md border border-border p-3">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={vatExempt}
+                onChange={(e) => setVatExempt(e.target.checked)}
+                className="size-4"
+              />
+              VAT Exempt
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Zeroes VAT on every line item, regardless of each line&apos;s tax rate (e.g. reverse charge, export
+              outside the EU, exempt organisation).
+            </p>
+            {vatExempt ? (
+              <Input
+                value={vatExemptReason}
+                onChange={(e) => setVatExemptReason(e.target.value)}
+                placeholder="Reason shown on the invoice (optional), e.g. Reverse charge — Article 44"
+              />
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -259,7 +299,14 @@ export function InvoiceForm({
                   </div>
                   <div>
                     <Label>Tax %</Label>
-                    <Input type="number" step="0.01" value={row.taxRate} onChange={(e) => updateRow(row.key, { taxRate: e.target.value })} />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={vatExempt ? "0" : row.taxRate}
+                      onChange={(e) => updateRow(row.key, { taxRate: e.target.value })}
+                      disabled={vatExempt}
+                      title={vatExempt ? "Tax is 0% — this invoice is marked VAT Exempt above." : undefined}
+                    />
                   </div>
                   <div className="flex flex-col justify-end">
                     <Label>Line Total</Label>

@@ -141,6 +141,75 @@ export async function dashboardSummary() {
   return totals;
 }
 
+/**
+ * VAT return support: breaks down net/VAT/gross by the tax rate actually
+ * charged, for finalised (non-draft, non-void) invoices issued in the given
+ * range — the shape an Irish VAT3 return needs (amounts grouped by rate),
+ * not just a single blended total.
+ */
+export async function vatReport(range: DateRange = {}) {
+  const conditions = [
+    sql`${invoices.status} in ('SENT','PARTIALLY_PAID','PAID')`,
+    ...dateConditions(invoices.issueDate, range),
+  ];
+
+  const byRate = await db
+    .select({
+      taxRate: invoiceItems.taxRate,
+      net: sql<string>`coalesce(sum(${invoiceItems.lineSubtotal}), 0)`,
+      vat: sql<string>`coalesce(sum(${invoiceItems.lineTax}), 0)`,
+      gross: sql<string>`coalesce(sum(${invoiceItems.lineTotal}), 0)`,
+      lineCount: sql<number>`count(*)`,
+    })
+    .from(invoiceItems)
+    .innerJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
+    .where(and(...conditions))
+    .groupBy(invoiceItems.taxRate)
+    .orderBy(invoiceItems.taxRate);
+
+  const [totals] = await db
+    .select({
+      net: sql<string>`coalesce(sum(${invoiceItems.lineSubtotal}), 0)`,
+      vat: sql<string>`coalesce(sum(${invoiceItems.lineTax}), 0)`,
+      gross: sql<string>`coalesce(sum(${invoiceItems.lineTotal}), 0)`,
+      invoiceCount: sql<number>`count(distinct ${invoices.id})`,
+    })
+    .from(invoiceItems)
+    .innerJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
+    .where(and(...conditions));
+
+  const [exempt] = await db
+    .select({
+      net: sql<string>`coalesce(sum(${invoices.subtotal}), 0)`,
+      invoiceCount: sql<number>`count(*)`,
+    })
+    .from(invoices)
+    .where(and(...conditions, eq(invoices.vatExempt, true)));
+
+  return { byRate, totals, exempt };
+}
+
+/** Per-client totals invoiced/paid/outstanding — "who has paid, who hasn't" at a glance. */
+export async function outstandingByClient() {
+  const rows = await db
+    .select({
+      clientId: clients.id,
+      clientName: sql<string>`coalesce(${clients.companyName}, trim(concat(${clients.firstName}, ' ', ${clients.lastName})))`,
+      email: clients.email,
+      totalInvoiced: sql<string>`coalesce(sum(${invoices.total}) filter (where ${invoices.status} in ('SENT','PARTIALLY_PAID','PAID')), 0)`,
+      totalPaid: sql<string>`coalesce(sum(${invoices.amountPaid}) filter (where ${invoices.status} in ('SENT','PARTIALLY_PAID','PAID')), 0)`,
+      totalOutstanding: sql<string>`coalesce(sum(${invoices.amountDue}) filter (where ${invoices.status} in ('SENT','PARTIALLY_PAID')), 0)`,
+      overdueCount: sql<number>`count(*) filter (where ${invoices.status} in ('SENT','PARTIALLY_PAID') and ${invoices.dueDate} < now())`,
+    })
+    .from(clients)
+    .innerJoin(invoices, eq(invoices.clientId, clients.id))
+    .groupBy(clients.id)
+    .having(sql`coalesce(sum(${invoices.total}) filter (where ${invoices.status} in ('SENT','PARTIALLY_PAID','PAID')), 0) > 0`)
+    .orderBy(desc(sql`sum(${invoices.amountDue}) filter (where ${invoices.status} in ('SENT','PARTIALLY_PAID'))`));
+
+  return rows;
+}
+
 export async function recentInvoices(limit = 8) {
   return db
     .select({ invoice: invoices, client: clients })

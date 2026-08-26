@@ -189,6 +189,9 @@ export const clients = pgTable("clients", {
   notes: text("notes"),
   defaultPaymentTermsDays: integer("default_payment_terms_days"),
 
+  /** Default for new invoices to this client (e.g. overseas/reverse-charge/exempt organisation). Can still be overridden per invoice. */
+  vatExempt: boolean("vat_exempt").notNull().default(false),
+
   active: boolean("active").notNull().default(true),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -239,6 +242,11 @@ export const invoices = pgTable("invoices", {
 
   notes: text("notes"),
   paymentTerms: text("payment_terms"),
+
+  /** When true, all line items are forced to 0% tax regardless of their configured rate (enforced server-side, not just in the UI). */
+  vatExempt: boolean("vat_exempt").notNull().default(false),
+  /** Legal basis for the exemption (e.g. "Reverse charge — Article 44"), shown on the PDF. Optional even when vatExempt is true. */
+  vatExemptReason: text("vat_exempt_reason"),
 
   pdfPath: text("pdf_path"),
 

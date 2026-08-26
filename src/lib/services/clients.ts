@@ -22,6 +22,7 @@ export interface ClientInput {
   taxNumber?: string | null;
   notes?: string | null;
   defaultPaymentTermsDays?: number | null;
+  vatExempt?: boolean;
 }
 
 export function clientDisplayName(client: {

@@ -23,7 +23,7 @@ export default async function NewInvoicePage({
 
       <InvoiceForm
         action={createInvoiceAction}
-        clients={clients.map((c) => ({ id: c.id, label: clientDisplayName(c), defaultPaymentTermsDays: c.defaultPaymentTermsDays }))}
+        clients={clients.map((c) => ({ id: c.id, label: clientDisplayName(c), defaultPaymentTermsDays: c.defaultPaymentTermsDays, vatExempt: c.vatExempt }))}
         services={services.map((s) => ({
           id: s.id,
           name: s.name,

@@ -1,24 +1,39 @@
 import Link from "next/link";
-import { dashboardSummary, recentInvoices } from "@/lib/services/reports";
+import { dashboardSummary, recentInvoices, revenueByMonth } from "@/lib/services/reports";
 import { listOverdueInvoices, daysOverdue } from "@/lib/services/invoices";
 import { clientDisplayName } from "@/lib/services/clients";
 import { getCompanySettings } from "@/lib/services/settings";
 import { formatMoney } from "@/lib/money";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { RevenueChart } from "@/components/dashboard/revenue-chart";
+import { StatusChart, type StatusDatum } from "@/components/dashboard/status-chart";
 import { InvoiceStatusBadge } from "@/components/invoices/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default async function DashboardPage() {
-  const [summary, recent, overdue, settings] = await Promise.all([
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+  sixMonthsAgo.setDate(1);
+
+  const [summary, recent, overdue, settings, revenueTrend] = await Promise.all([
     dashboardSummary(),
     recentInvoices(8),
     listOverdueInvoices(),
     getCompanySettings(),
+    revenueByMonth({ from: sixMonthsAgo }),
   ]);
 
   const currency = settings.defaultCurrency;
+
+  const statusData: StatusDatum[] = [
+    { label: "Draft", count: Number(summary.draftCount), color: "var(--muted-foreground)" },
+    { label: "Sent", count: Number(summary.sentCount), color: "var(--info)" },
+    { label: "Partially Paid", count: Number(summary.partiallyPaidCount), color: "var(--warning)" },
+    { label: "Paid", count: Number(summary.paidCount), color: "var(--success)" },
+    { label: "Overdue", count: Number(summary.overdueCount), color: "var(--danger)" },
+  ];
 
   return (
     <div className="space-y-8">
@@ -50,6 +65,26 @@ export default async function DashboardPage() {
         <StatCard label="Partially Paid" value={String(summary.partiallyPaidCount)} />
         <StatCard label="Paid" value={String(summary.paidCount)} />
         <StatCard label="Overdue" value={String(summary.overdueCount)} tone="danger" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue — Last 6 Months</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RevenueChart data={revenueTrend} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoices by Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StatusChart data={statusData} />
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

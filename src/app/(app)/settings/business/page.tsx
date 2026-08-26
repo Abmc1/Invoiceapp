@@ -66,8 +66,9 @@ export default async function BusinessSettingsPage() {
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="vatNumber">VAT Number</Label>
-                <Input id="vatNumber" name="vatNumber" defaultValue={settings.vatNumber ?? ""} />
+                <Label htmlFor="vatNumber">VAT Number {settings.vatRegistered ? "*" : ""}</Label>
+                <Input id="vatNumber" name="vatNumber" defaultValue={settings.vatNumber ?? ""} required={settings.vatRegistered} />
+                <p className="text-xs text-muted-foreground mt-1">Required once &quot;VAT registered&quot; is checked.</p>
               </div>
               <div>
                 <Label htmlFor="companyRegistrationNumber">Company Registration No.</Label>

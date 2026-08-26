@@ -34,15 +34,24 @@ export interface CreateInvoiceInput {
   notes?: string | null;
   items: LineItemDraft[];
   createdByUserId: string;
+  vatExempt?: boolean;
+  vatExemptReason?: string | null;
 }
 
-function computeLineTotals(items: LineItemDraft[]) {
+/**
+ * `vatExempt` is enforced here, not just in the UI form: every line item's
+ * tax rate is forced to 0 regardless of what was submitted, so there's no
+ * way to end up with a "VAT exempt" invoice that still charges VAT because
+ * a client-side toggle didn't fire.
+ */
+function computeLineTotals(items: LineItemDraft[], vatExempt = false) {
   return items.map((item, index) => {
+    const taxRate = vatExempt ? 0 : (item.taxRate ?? 0);
     const totals = calcLineItem({
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       discount: item.discount ?? 0,
-      taxRate: item.taxRate ?? 0,
+      taxRate,
     });
     return {
       serviceId: item.serviceId ?? null,
@@ -51,7 +60,7 @@ function computeLineTotals(items: LineItemDraft[]) {
       unit: item.unit || "unit",
       unitPrice: toMoneyString(item.unitPrice),
       discount: toMoneyString(item.discount ?? 0),
-      taxRate: toMoneyString(item.taxRate ?? 0),
+      taxRate: toMoneyString(taxRate),
       lineSubtotal: totals.lineSubtotal,
       lineTax: totals.lineTax,
       lineTotal: totals.lineTotal,
@@ -68,7 +77,7 @@ export async function createInvoice(input: CreateInvoiceInput) {
 
   return db.transaction(async (tx) => {
     const invoiceNumber = await allocateInvoiceNumber(tx);
-    const lines = computeLineTotals(input.items);
+    const lines = computeLineTotals(input.items, input.vatExempt);
     const totals = calcInvoiceTotals(lines);
 
     const [invoice] = await tx
@@ -88,6 +97,8 @@ export async function createInvoice(input: CreateInvoiceInput) {
         amountDue: totals.total,
         notes: input.notes ?? null,
         paymentTerms: input.paymentTerms ?? null,
+        vatExempt: input.vatExempt ?? false,
+        vatExemptReason: input.vatExemptReason ?? null,
         createdByUserId: input.createdByUserId,
       })
       .returning();
@@ -118,6 +129,8 @@ export interface UpdateInvoiceInput {
   notes?: string | null;
   items: LineItemDraft[];
   updatedByUserId: string;
+  vatExempt?: boolean;
+  vatExemptReason?: string | null;
 }
 
 /**
@@ -138,7 +151,7 @@ export async function updateDraftInvoice(invoiceId: string, input: UpdateInvoice
       throw new Error("Only draft invoices can be edited. Void this invoice and create a replacement instead.");
     }
 
-    const lines = computeLineTotals(input.items);
+    const lines = computeLineTotals(input.items, input.vatExempt);
     const totals = calcInvoiceTotals(lines);
 
     const [updated] = await tx
@@ -155,6 +168,8 @@ export async function updateDraftInvoice(invoiceId: string, input: UpdateInvoice
         taxTotal: totals.taxTotal,
         total: totals.total,
         amountDue: subMoney(totals.total, existing.amountPaid).toFixed(2),
+        vatExempt: input.vatExempt ?? false,
+        vatExemptReason: input.vatExemptReason ?? null,
         updatedAt: new Date(),
       })
       .where(eq(invoices.id, invoiceId))
@@ -268,6 +283,8 @@ export async function createReplacementInvoice(originalInvoiceId: string, userId
       discount: item.discount,
       taxRate: item.taxRate,
     })),
+    vatExempt: original.vatExempt,
+    vatExemptReason: original.vatExemptReason,
     createdByUserId: userId,
   });
 

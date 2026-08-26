@@ -70,6 +70,37 @@ export async function exportPaymentsCsv(): Promise<string> {
 }
 
 /**
+ * One row per invoice with net/VAT/gross and the tax rate(s) charged, for
+ * handing to an accountant or filling in a VAT return. Complements the
+ * rate-grouped summary shown on-screen in Reports > VAT Report.
+ */
+export async function exportVatReportCsv(range: { from: Date; to: Date }): Promise<string> {
+  const rows = await db.query.invoices.findMany({
+    where: and(gte(invoices.issueDate, range.from), lte(invoices.issueDate, range.to)),
+    with: { client: true, items: true },
+    orderBy: desc(invoices.issueDate),
+  });
+
+  const finalised = rows.filter((r) => r.status === "SENT" || r.status === "PARTIALLY_PAID" || r.status === "PAID");
+
+  const columns: CsvColumn<(typeof finalised)[number]>[] = [
+    { header: "Invoice Number", value: (r) => r.invoiceNumber },
+    { header: "Client", value: (r) => clientDisplayName(r.client) },
+    { header: "Issue Date", value: (r) => r.issueDate.toISOString().slice(0, 10) },
+    {
+      header: "Tax Rate(s)",
+      value: (r) => [...new Set(r.items.map((i) => `${Number(i.taxRate)}%`))].join(", "),
+    },
+    { header: "Net", value: (r) => r.subtotal },
+    { header: "VAT", value: (r) => r.taxTotal },
+    { header: "Gross", value: (r) => r.total },
+    { header: "VAT Exempt", value: (r) => (r.vatExempt ? "Yes" : "No") },
+    { header: "Exempt Reason", value: (r) => r.vatExemptReason },
+  ];
+  return toCsv(finalised, columns);
+}
+
+/**
  * Accounting-friendly export: one row per invoice with the fields an
  * accountant needs (net/tax/gross, payment status, payment date & reference)
  * for a given date range. This does not replace bookkeeping software — it

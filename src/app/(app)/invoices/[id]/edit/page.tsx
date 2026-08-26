@@ -23,7 +23,7 @@ export default async function EditInvoicePage({ params }: { params: Promise<{ id
 
       <InvoiceForm
         action={updateInvoiceDraftAction.bind(null, invoice.id)}
-        clients={clients.map((c) => ({ id: c.id, label: clientDisplayName(c), defaultPaymentTermsDays: c.defaultPaymentTermsDays }))}
+        clients={clients.map((c) => ({ id: c.id, label: clientDisplayName(c), defaultPaymentTermsDays: c.defaultPaymentTermsDays, vatExempt: c.vatExempt }))}
         services={services.map((s) => ({
           id: s.id,
           name: s.name,
@@ -41,6 +41,8 @@ export default async function EditInvoicePage({ params }: { params: Promise<{ id
           currency: invoice.currency,
           paymentTerms: invoice.paymentTerms ?? "",
           notes: invoice.notes ?? "",
+          vatExempt: invoice.vatExempt,
+          vatExemptReason: invoice.vatExemptReason ?? "",
           items: invoice.items.map((item) => ({
             serviceId: item.serviceId,
             description: item.description,

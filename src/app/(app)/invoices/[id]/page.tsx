@@ -4,6 +4,7 @@ import { getInvoiceById, isInvoiceOverdue, daysOverdue } from "@/lib/services/in
 import { clientDisplayName } from "@/lib/services/clients";
 import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -39,6 +40,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           <div className="flex items-center gap-3">
             <h1 className="font-display text-2xl">{invoice.invoiceNumber}</h1>
             <InvoiceStatusBadge status={invoice.status} dueDate={invoice.dueDate} />
+            {invoice.vatExempt ? <Badge variant="muted">VAT Exempt</Badge> : null}
           </div>
           <p className="text-sm text-muted-foreground">
             <Link href={`/clients/${invoice.client.id}`} className="text-brand hover:underline">
@@ -130,9 +132,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                   <span>-{formatMoney(invoice.discountTotal, invoice.currency)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
+                  <span className="text-muted-foreground">Tax {invoice.vatExempt ? "(Exempt)" : ""}</span>
                   <span>{formatMoney(invoice.taxTotal, invoice.currency)}</span>
                 </div>
+                {invoice.vatExempt && invoice.vatExemptReason ? (
+                  <p className="text-xs text-muted-foreground italic">{invoice.vatExemptReason}</p>
+                ) : null}
                 <div className="flex justify-between border-t border-border pt-1 font-display text-base">
                   <span>Total</span>
                   <span>{formatMoney(invoice.total, invoice.currency)}</span>

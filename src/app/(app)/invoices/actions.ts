@@ -34,6 +34,8 @@ const invoiceFormSchema = z.object({
   paymentTerms: z.string().trim().optional(),
   notes: z.string().trim().optional(),
   itemsJson: z.string().min(1),
+  vatExempt: z.string().optional(),
+  vatExemptReason: z.string().trim().optional(),
 });
 
 const paymentFormSchema = z.object({
@@ -63,6 +65,8 @@ function parseInvoiceForm(formData: FormData) {
     currency: parsed.currency,
     paymentTerms: parsed.paymentTerms || null,
     notes: parsed.notes || null,
+    vatExempt: parsed.vatExempt === "on",
+    vatExemptReason: parsed.vatExemptReason || null,
     items,
   };
 }

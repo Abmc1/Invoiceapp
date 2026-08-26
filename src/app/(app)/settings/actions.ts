@@ -17,6 +17,13 @@ function str(formData: FormData, key: string): string | null {
 
 export async function updateBusinessSettingsAction(formData: FormData) {
   const user = await requireAdmin();
+
+  const vatRegistered = formData.get("vatRegistered") === "on";
+  const vatNumber = str(formData, "vatNumber");
+  if (vatRegistered && !vatNumber) {
+    throw new Error("VAT number is required when MotivAction is marked as VAT registered.");
+  }
+
   const update: CompanySettingsUpdate = {
     companyName: str(formData, "companyName") ?? "MotivAction",
     tradingName: str(formData, "tradingName"),
@@ -30,8 +37,8 @@ export async function updateBusinessSettingsAction(formData: FormData) {
     phone: str(formData, "phone"),
     mobile: str(formData, "mobile"),
     website: str(formData, "website"),
-    vatRegistered: formData.get("vatRegistered") === "on",
-    vatNumber: str(formData, "vatNumber"),
+    vatRegistered,
+    vatNumber,
     companyRegistrationNumber: str(formData, "companyRegistrationNumber"),
   };
   await updateCompanySettings(update, user.id);

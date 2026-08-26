@@ -262,7 +262,10 @@ export function InvoiceDocument({ settings, client, invoice, items, payments, di
             </View>
           ) : null}
           <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>{settings.vatRegistered ? "VAT" : "Tax"}</Text>
+            <Text style={styles.totalsLabel}>
+              {settings.vatRegistered ? "VAT" : "Tax"}
+              {invoice.vatExempt ? " (Exempt)" : ""}
+            </Text>
             <Text style={styles.totalsValue}>{formatMoney(invoice.taxTotal, invoice.currency)}</Text>
           </View>
           <View style={styles.grandTotalRow}>
@@ -290,6 +293,13 @@ export function InvoiceDocument({ settings, client, invoice, items, payments, di
                 {p.reference ? `, ref: ${p.reference}` : ""})
               </Text>
             ))}
+          </View>
+        ) : null}
+
+        {invoice.vatExempt ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>VAT Exemption</Text>
+            <Text style={styles.sectionText}>{invoice.vatExemptReason || "This invoice is exempt from VAT."}</Text>
           </View>
         ) : null}
 

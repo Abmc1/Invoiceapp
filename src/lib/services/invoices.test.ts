@@ -297,5 +297,75 @@ describe("payments & status transitions", () => {
   });
 });
 
+describe("VAT exemption", () => {
+  it("forces line item tax to 0 when vatExempt is set, even if a tax rate was submitted", async () => {
+    const { user, client } = await makeInvoiceInputs();
+
+    const invoice = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      vatExempt: true,
+      vatExemptReason: "Reverse charge — Article 44",
+      // Tax rates are submitted as non-zero on purpose: enforcement must
+      // happen server-side regardless of what the client sends.
+      items: [{ description: "Executive Coaching", quantity: 2, unit: "session", unitPrice: 250, taxRate: 23 }],
+      createdByUserId: user.id,
+    });
+
+    expect(invoice.vatExempt).toBe(true);
+    expect(invoice.vatExemptReason).toBe("Reverse charge — Article 44");
+    expect(invoice.taxTotal).toBe("0.00");
+    expect(invoice.total).toBe("500.00");
+
+    const full = await getInvoiceById(invoice.id);
+    expect(full?.items.every((i) => Number(i.taxRate) === 0)).toBe(true);
+  });
+
+  it("charges tax normally when vatExempt is false", async () => {
+    const { user, client } = await makeInvoiceInputs();
+
+    const invoice = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      vatExempt: false,
+      items: [{ description: "Executive Coaching", quantity: 1, unit: "session", unitPrice: 100, taxRate: 23 }],
+      createdByUserId: user.id,
+    });
+
+    expect(invoice.taxTotal).toBe("23.00");
+  });
+
+  it("keeps VAT-exempt status when updating a draft invoice", async () => {
+    const { user, client } = await makeInvoiceInputs();
+
+    const invoice = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 100, taxRate: 23 }],
+      createdByUserId: user.id,
+    });
+    expect(invoice.taxTotal).toBe("23.00");
+
+    const updated = await updateDraftInvoice(invoice.id, {
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      vatExempt: true,
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 100, taxRate: 23 }],
+      updatedByUserId: user.id,
+    });
+
+    expect(updated.vatExempt).toBe(true);
+    expect(updated.taxTotal).toBe("0.00");
+  });
+});
+
 // keep testDb import referenced so this file also verifies the alias wiring
 void testDb;

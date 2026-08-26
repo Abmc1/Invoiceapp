@@ -5,11 +5,13 @@ import {
   revenueByClient,
   revenueByService,
   outstandingInvoices,
+  vatReport,
 } from "@/lib/services/reports";
 import { clientDisplayName } from "@/lib/services/clients";
 import { formatMoney } from "@/lib/money";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,13 +25,14 @@ export default async function ReportsPage({
   const from = typeof params.from === "string" && params.from ? new Date(params.from) : undefined;
   const to = typeof params.to === "string" && params.to ? new Date(params.to) : undefined;
 
-  const [revenue, invoiceCounts, payments, byClient, byService, outstanding] = await Promise.all([
+  const [revenue, invoiceCounts, payments, byClient, byService, outstanding, vat] = await Promise.all([
     revenueByMonth({ from, to }),
     invoicesByMonth({ from, to }),
     paymentsReceived({ from, to }),
     revenueByClient({ from, to }),
     revenueByService({ from, to }),
     outstandingInvoices(),
+    vatReport({ from, to }),
   ]);
 
   const invoicesByMonthTotals = new Map<string, number>();
@@ -66,6 +69,73 @@ export default async function ReportsPage({
               Apply
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>VAT Report</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Net, VAT and gross for the date range above, broken down by the rate charged — for filling in a VAT
+              return. Only finalised (Sent/Partially Paid/Paid) invoices are included.
+            </p>
+          </div>
+          <Button asChild variant="outline" size="sm">
+            <a href={`/api/export/vat?from=${(params.from as string) || yearStart}&to=${(params.to as string) || today}`}>
+              Export CSV
+            </a>
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tax Rate</TableHead>
+                <TableHead className="text-right">Net</TableHead>
+                <TableHead className="text-right">VAT</TableHead>
+                <TableHead className="text-right">Gross</TableHead>
+                <TableHead className="text-right">Lines</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {vat.byRate.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                    No finalised invoices in this range.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                vat.byRate.map((row) => (
+                  <TableRow key={row.taxRate}>
+                    <TableCell>{Number(row.taxRate) === 0 ? "0% / Exempt" : `${Number(row.taxRate)}%`}</TableCell>
+                    <TableCell className="text-right">{formatMoney(row.net)}</TableCell>
+                    <TableCell className="text-right">{formatMoney(row.vat)}</TableCell>
+                    <TableCell className="text-right">{formatMoney(row.gross)}</TableCell>
+                    <TableCell className="text-right">{row.lineCount}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+            {vat.byRate.length > 0 ? (
+              <tfoot>
+                <TableRow className="font-semibold">
+                  <TableCell>Total</TableCell>
+                  <TableCell className="text-right">{formatMoney(vat.totals.net)}</TableCell>
+                  <TableCell className="text-right">{formatMoney(vat.totals.vat)}</TableCell>
+                  <TableCell className="text-right">{formatMoney(vat.totals.gross)}</TableCell>
+                  <TableCell />
+                </TableRow>
+              </tfoot>
+            ) : null}
+          </Table>
+          {Number(vat.exempt.invoiceCount) > 0 ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground border-t border-border">
+              <Badge variant="muted">VAT Exempt</Badge>{" "}
+              {vat.exempt.invoiceCount} invoice(s) totalling {formatMoney(vat.exempt.net)} were marked VAT exempt in
+              this range and are excluded from the rate breakdown above.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

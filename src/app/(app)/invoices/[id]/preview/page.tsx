@@ -94,7 +94,7 @@ export default async function InvoicePreviewPage({ params }: { params: Promise<{
           <div className="w-64 space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatMoney(invoice.subtotal, invoice.currency)}</span></div>
             {Number(invoice.discountTotal) > 0 ? <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-{formatMoney(invoice.discountTotal, invoice.currency)}</span></div> : null}
-            <div className="flex justify-between"><span className="text-muted-foreground">{settings.vatRegistered ? "VAT" : "Tax"}</span><span>{formatMoney(invoice.taxTotal, invoice.currency)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{settings.vatRegistered ? "VAT" : "Tax"}{invoice.vatExempt ? " (Exempt)" : ""}</span><span>{formatMoney(invoice.taxTotal, invoice.currency)}</span></div>
             <div className="flex justify-between border-t border-[#1D1D1B] pt-1 font-display text-base"><span>Total</span><span>{formatMoney(invoice.total, invoice.currency)}</span></div>
             {Number(invoice.amountPaid) > 0 ? <div className="flex justify-between text-muted-foreground"><span>Amount Paid</span><span>-{formatMoney(invoice.amountPaid, invoice.currency)}</span></div> : null}
             <div className="flex justify-between rounded px-2 py-1 font-semibold" style={{ backgroundColor: "#faf1f2", color: "#C62435" }}>
@@ -102,6 +102,13 @@ export default async function InvoicePreviewPage({ params }: { params: Promise<{
             </div>
           </div>
         </div>
+
+        {invoice.vatExempt ? (
+          <div className="mb-4">
+            <p className="text-xs uppercase text-muted-foreground mb-1">VAT Exemption</p>
+            <p className="text-sm">{invoice.vatExemptReason || "This invoice is exempt from VAT."}</p>
+          </div>
+        ) : null}
 
         {invoice.paymentTerms ? (
           <div className="mb-4">
