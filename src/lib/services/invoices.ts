@@ -1,10 +1,11 @@
 import "server-only";
-import { and, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lt, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, invoiceItems, invoices } from "@/db/schema";
 import { calcInvoiceTotals, calcLineItem, subMoney, toMoneyString, compareMoney } from "@/lib/money";
 import { allocateInvoiceNumber } from "./invoice-numbering";
 import { recordAuditLog, recordInvoiceEvent } from "./audit";
+import { getCompanySettings } from "./settings";
 
 export type InvoiceStatus =
   | "DRAFT"
@@ -411,7 +412,7 @@ const ARCHIVABLE_STATUSES = new Set(["PAID", "VOID", "CANCELLED"]);
  * invoice can never be one that's still owed. Purely hides it from the
  * default worklist views; reports and exports always include it.
  */
-export async function setInvoiceArchived(invoiceId: string, archived: boolean, userId: string) {
+export async function setInvoiceArchived(invoiceId: string, archived: boolean, userId: string | null) {
   return db.transaction(async (tx) => {
     const [existing] = await tx.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
     if (!existing) throw new Error("Invoice not found.");
@@ -434,6 +435,41 @@ export async function setInvoiceArchived(invoiceId: string, archived: boolean, u
 
     return updated;
   });
+}
+
+/**
+ * Sweeps Paid/Void/Cancelled invoices that have sat untouched (by `updatedAt`)
+ * for longer than Settings > Archiving allows, and archives them. Does
+ * nothing unless autoArchiveEnabled is on. Safe to call repeatedly — already
+ * archived invoices are excluded from the candidate query, so re-running it
+ * is a no-op for anything it already swept. Attributed to no user (system
+ * action) in the audit log, matching how the reminders cron behaves.
+ */
+export async function runAutoArchive(): Promise<{ archived: number; skipped?: string }> {
+  const settings = await getCompanySettings();
+  if (!settings.autoArchiveEnabled) {
+    return { archived: 0, skipped: "Automatic archiving is turned off in Settings." };
+  }
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - settings.autoArchiveDays);
+
+  const candidates = await db
+    .select({ id: invoices.id })
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.archived, false),
+        sql`${invoices.status} in ('PAID','VOID','CANCELLED')`,
+        lt(invoices.updatedAt, cutoff)
+      )
+    );
+
+  for (const { id } of candidates) {
+    await setInvoiceArchived(id, true, null);
+  }
+
+  return { archived: candidates.length };
 }
 
 export async function deleteDraftInvoice(invoiceId: string, userId: string) {

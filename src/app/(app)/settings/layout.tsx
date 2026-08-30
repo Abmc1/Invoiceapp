@@ -7,6 +7,7 @@ const ADMIN_ONLY_TABS = [
   { href: "/settings/bank-details", label: "Bank Details" },
   { href: "/settings/email", label: "Email" },
   { href: "/settings/reminders", label: "Reminders" },
+  { href: "/settings/archiving", label: "Archiving" },
   { href: "/settings/users", label: "Users" },
 ];
 

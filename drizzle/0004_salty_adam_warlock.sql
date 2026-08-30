@@ -1,0 +1,2 @@
+ALTER TABLE "company_settings" ADD COLUMN "auto_archive_enabled" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "company_settings" ADD COLUMN "auto_archive_days" integer DEFAULT 90 NOT NULL;

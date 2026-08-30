@@ -62,7 +62,7 @@ export default async function ReminderSettingsPage() {
         <CardContent className="p-5 space-y-3">
           <h2 className="font-medium">Manual Trigger</h2>
           <p className="text-sm text-muted-foreground">
-            In production, wire a scheduled job (e.g. Vercel Cron) to call <code>/api/cron/reminders</code> once a day.
+            A daily scheduled job (Vercel Cron) calls <code>/api/cron/reminders</code> automatically once this is on.
             You can also trigger a check immediately here — useful for testing.
           </p>
           <RunRemindersButton />

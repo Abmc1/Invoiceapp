@@ -155,6 +155,10 @@ export const companySettings = pgTable("company_settings", {
   reminderOnDueDate: boolean("reminder_on_due_date").notNull().default(true),
   reminderAfterDueDaysList: text("reminder_after_due_days_list").notNull().default("7,14"),
 
+  /** Automatically archives Paid/Void/Cancelled invoices once they've sat untouched this many days. Purely declutters worklist views — see the `archived` column comment on `invoices`. */
+  autoArchiveEnabled: boolean("auto_archive_enabled").notNull().default(true),
+  autoArchiveDays: integer("auto_archive_days").notNull().default(90),
+
   emailProvider: text("email_provider").notNull().default("mock"),
   emailFromName: text("email_from_name").notNull().default("MotivAction"),
   emailFromAddress: text("email_from_address"),

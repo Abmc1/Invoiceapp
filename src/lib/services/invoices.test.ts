@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { seedTestCompanySettings, seedTestUser, seedTestClient, testDb } from "@/test/db";
+import { eq } from "drizzle-orm";
+import { invoices } from "@/db/schema";
 import {
   createInvoice,
   finalizeInvoice,
@@ -12,6 +14,7 @@ import {
   deleteDraftInvoice,
   setInvoiceArchived,
   listInvoices,
+  runAutoArchive,
 } from "./invoices";
 import { recordPayment } from "./payments";
 
@@ -427,6 +430,101 @@ describe("archiving", () => {
 
     const defaultList = await listInvoices();
     expect(defaultList.find((r) => r.invoice.id === invoice.id)).toBeDefined();
+  });
+});
+
+describe("auto-archiving", () => {
+  it("does nothing when disabled in settings", async () => {
+    await seedTestCompanySettings({ autoArchiveEnabled: false });
+    const user = await seedTestUser();
+    const client = await seedTestClient();
+
+    const invoice = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 500 }],
+      createdByUserId: user.id,
+    });
+    await finalizeInvoice(invoice.id, user.id);
+    await recordPayment({ invoiceId: invoice.id, amount: 500, paymentDate: new Date(), paymentMethod: "CARD", recordedByUserId: user.id });
+    await testDb.update(invoices).set({ updatedAt: new Date(Date.now() - 200 * 86400000) }).where(eq(invoices.id, invoice.id));
+
+    const result = await runAutoArchive();
+    expect(result.archived).toBe(0);
+    expect(result.skipped).toMatch(/turned off/i);
+
+    const reloaded = await getInvoiceById(invoice.id);
+    expect(reloaded?.archived).toBe(false);
+  });
+
+  it("archives resolved invoices past the configured age, but leaves recent and unresolved ones alone", async () => {
+    await seedTestCompanySettings({ autoArchiveEnabled: true, autoArchiveDays: 90 });
+    const user = await seedTestUser();
+    const client = await seedTestClient();
+
+    const old = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 500 }],
+      createdByUserId: user.id,
+    });
+    await finalizeInvoice(old.id, user.id);
+    await recordPayment({ invoiceId: old.id, amount: 500, paymentDate: new Date(), paymentMethod: "CARD", recordedByUserId: user.id });
+    await testDb.update(invoices).set({ updatedAt: new Date(Date.now() - 100 * 86400000) }).where(eq(invoices.id, old.id));
+
+    const recent = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 500 }],
+      createdByUserId: user.id,
+    });
+    await finalizeInvoice(recent.id, user.id);
+    await recordPayment({ invoiceId: recent.id, amount: 500, paymentDate: new Date(), paymentMethod: "CARD", recordedByUserId: user.id });
+
+    const owed = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 500 }],
+      createdByUserId: user.id,
+    });
+    await finalizeInvoice(owed.id, user.id);
+    await testDb.update(invoices).set({ updatedAt: new Date(Date.now() - 100 * 86400000) }).where(eq(invoices.id, owed.id));
+
+    const result = await runAutoArchive();
+    expect(result.archived).toBe(1);
+
+    expect((await getInvoiceById(old.id))?.archived).toBe(true);
+    expect((await getInvoiceById(recent.id))?.archived).toBe(false);
+    expect((await getInvoiceById(owed.id))?.archived).toBe(false);
+  });
+
+  it("is a no-op the second time it runs over the same data", async () => {
+    await seedTestCompanySettings({ autoArchiveEnabled: true, autoArchiveDays: 90 });
+    const user = await seedTestUser();
+    const client = await seedTestClient();
+
+    const invoice = await createInvoice({
+      clientId: client.id,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 86400000),
+      currency: "EUR",
+      items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 500 }],
+      createdByUserId: user.id,
+    });
+    await finalizeInvoice(invoice.id, user.id);
+    await recordPayment({ invoiceId: invoice.id, amount: 500, paymentDate: new Date(), paymentMethod: "CARD", recordedByUserId: user.id });
+    await testDb.update(invoices).set({ updatedAt: new Date(Date.now() - 200 * 86400000) }).where(eq(invoices.id, invoice.id));
+
+    expect((await runAutoArchive()).archived).toBe(1);
+    expect((await runAutoArchive()).archived).toBe(0);
   });
 });
 

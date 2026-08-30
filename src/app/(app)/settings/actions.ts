@@ -8,6 +8,7 @@ import { createUser, setUserActive, setUserRole, changeOwnPassword, type UserRol
 import { isPasswordStrongEnough } from "@/lib/auth/password";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { runDueReminders } from "@/lib/services/reminders";
+import { runAutoArchive } from "@/lib/services/invoices";
 
 function str(formData: FormData, key: string): string | null {
   const value = formData.get(key);
@@ -99,6 +100,28 @@ export async function updateReminderSettingsAction(formData: FormData) {
 export async function runRemindersNowAction() {
   await requireAdmin();
   return runDueReminders();
+}
+
+export async function updateAutoArchiveSettingsAction(formData: FormData) {
+  const user = await requireAdmin();
+  const days = Number(str(formData, "autoArchiveDays") ?? "90");
+  if (!Number.isFinite(days) || days < 1) {
+    throw new Error("Archive-after must be at least 1 day.");
+  }
+  const update: CompanySettingsUpdate = {
+    autoArchiveEnabled: formData.get("autoArchiveEnabled") === "on",
+    autoArchiveDays: days,
+  };
+  await updateCompanySettings(update, user.id);
+  revalidatePath("/settings/archiving");
+}
+
+export async function runAutoArchiveNowAction() {
+  await requireAdmin();
+  const result = await runAutoArchive();
+  revalidatePath("/invoices");
+  revalidatePath("/dashboard");
+  return result;
 }
 
 const newUserSchema = z.object({
