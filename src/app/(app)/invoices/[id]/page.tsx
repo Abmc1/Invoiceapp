@@ -6,6 +6,7 @@ import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ActionForm } from "@/components/ui/action-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { InvoiceStatusBadge } from "@/components/invoices/status-badge";
@@ -71,9 +72,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               <Button asChild variant="outline">
                 <Link href={`/invoices/${invoice.id}/edit`}>Edit</Link>
               </Button>
-              <form action={boundFinalize}>
+              <ActionForm action={boundFinalize} successMessage="Invoice marked as sent.">
                 <SubmitButton pendingText="Marking as Sent…">Mark as Sent</SubmitButton>
-              </form>
+              </ActionForm>
               <DeleteDraftButton action={boundDelete} />
             </>
           ) : null}
@@ -93,11 +94,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           ) : null}
 
           {ARCHIVABLE_STATUSES.has(invoice.status) ? (
-            <form action={boundSetArchived}>
+            <ActionForm
+              action={boundSetArchived}
+              successMessage={invoice.archived ? "Invoice unarchived." : "Invoice archived."}
+            >
               <SubmitButton variant="ghost" pendingText={invoice.archived ? "Unarchiving…" : "Archiving…"}>
                 {invoice.archived ? "Unarchive" : "Archive"}
               </SubmitButton>
-            </form>
+            </ActionForm>
           ) : null}
         </div>
       </div>

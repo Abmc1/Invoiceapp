@@ -53,18 +53,29 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Invoiced" value={formatMoney(summary.totalInvoiced, currency)} tone="brand" />
-        <StatCard label="Total Paid" value={formatMoney(summary.totalPaid, currency)} tone="success" />
-        <StatCard label="Outstanding" value={formatMoney(summary.totalOutstanding, currency)} />
-        <StatCard label="Overdue" value={formatMoney(summary.totalOverdue, currency)} tone="danger" hint={`${summary.overdueCount} invoice(s)`} />
+        <StatCard label="Total Invoiced" value={formatMoney(summary.totalInvoiced, currency)} tone="brand" href="/invoices" />
+        <StatCard label="Total Paid" value={formatMoney(summary.totalPaid, currency)} tone="success" href="/invoices?status=PAID" />
+        <StatCard label="Outstanding" value={formatMoney(summary.totalOutstanding, currency)} href="/payments" />
+        <StatCard
+          label="Overdue"
+          value={formatMoney(summary.totalOverdue, currency)}
+          tone="danger"
+          hint={`${summary.overdueCount} invoice(s)`}
+          href="/invoices?status=OVERDUE"
+        />
       </div>
 
       <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
-        <StatCard label="Draft" value={String(summary.draftCount)} hint="Not yet sent — doesn't count as revenue" />
-        <StatCard label="Sent" value={String(summary.sentCount)} />
-        <StatCard label="Partially Paid" value={String(summary.partiallyPaidCount)} />
-        <StatCard label="Paid" value={String(summary.paidCount)} />
-        <StatCard label="Overdue" value={String(summary.overdueCount)} tone="danger" />
+        <StatCard
+          label="Draft"
+          value={String(summary.draftCount)}
+          hint="Not yet sent — doesn't count as revenue"
+          href="/invoices?status=DRAFT"
+        />
+        <StatCard label="Sent" value={String(summary.sentCount)} href="/invoices?status=SENT" />
+        <StatCard label="Partially Paid" value={String(summary.partiallyPaidCount)} href="/invoices?status=PARTIALLY_PAID" />
+        <StatCard label="Paid" value={String(summary.paidCount)} href="/invoices?status=PAID" />
+        <StatCard label="Overdue" value={String(summary.overdueCount)} tone="danger" href="/invoices?status=OVERDUE" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 
 export function RecordPaymentDialog({
   action,
@@ -17,14 +19,22 @@ export function RecordPaymentDialog({
   amountDue: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   async function handleSubmit(formData: FormData) {
-    await action(formData);
-    setOpen(false);
+    setError(null);
+    try {
+      await action(formData);
+      setOpen(false);
+      toast({ description: "Payment recorded.", variant: "success" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to record payment. Please try again.");
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (next) setError(null); }}>
       <DialogTrigger asChild>
         <Button>Record Payment</Button>
       </DialogTrigger>
@@ -33,6 +43,7 @@ export function RecordPaymentDialog({
           <DialogTitle>Record Payment</DialogTitle>
         </DialogHeader>
         <form action={handleSubmit} className="space-y-4">
+          {error ? <Alert variant="destructive">{error}</Alert> : null}
           <div>
             <Label htmlFor="amount">Amount (€)</Label>
             <Input id="amount" name="amount" type="number" step="0.01" min="0.01" defaultValue={amountDue} required />

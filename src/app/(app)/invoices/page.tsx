@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listInvoices, type InvoiceListFilters } from "@/lib/services/invoices";
+import { listInvoices, countInvoices, type InvoiceListFilters } from "@/lib/services/invoices";
 import { clientDisplayName } from "@/lib/services/clients";
 import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ const STATUS_TABS: Array<{ value: string; label: string }> = [
 ];
 
 const ARCHIVABLE_STATUSES = new Set(["PAID", "VOID", "CANCELLED"]);
+const PAGE_SIZE = 50;
 
 export default async function InvoicesPage({
   searchParams,
@@ -33,6 +34,7 @@ export default async function InvoicesPage({
   const dateFrom = typeof params.from === "string" ? params.from : "";
   const dateTo = typeof params.to === "string" ? params.to : "";
   const includeArchived = params.archived === "1";
+  const page = Math.max(1, Number(typeof params.page === "string" ? params.page : "1") || 1);
 
   const filters: InvoiceListFilters = {
     status: status === "ALL" ? "ALL" : (status as InvoiceListFilters["status"]),
@@ -42,14 +44,36 @@ export default async function InvoicesPage({
     includeArchived,
   };
 
-  const rows = await listInvoices(filters);
+  const [rows, total] = await Promise.all([
+    listInvoices({ ...filters, page, pageSize: PAGE_SIZE }),
+    countInvoices(filters),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(total, page * PAGE_SIZE);
+
+  const baseParams = new URLSearchParams();
+  baseParams.set("status", status);
+  if (search) baseParams.set("q", search);
+  if (dateFrom) baseParams.set("from", dateFrom);
+  if (dateTo) baseParams.set("to", dateTo);
+  if (includeArchived) baseParams.set("archived", "1");
+
+  function pageHref(targetPage: number) {
+    const p = new URLSearchParams(baseParams);
+    if (targetPage > 1) p.set("page", String(targetPage));
+    return `/invoices?${p.toString()}`;
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl">Invoices</h1>
-          <p className="text-sm text-muted-foreground">{rows.length} invoice(s)</p>
+          <p className="text-sm text-muted-foreground">
+            {total === 0 ? "0 invoices" : `Showing ${rangeStart}–${rangeEnd} of ${total} invoice(s)`}
+          </p>
         </div>
         <Button asChild>
           <Link href="/invoices/new">New Invoice</Link>
@@ -137,6 +161,34 @@ export default async function InvoicesPage({
           )}
         </TableBody>
       </Table>
+
+      {totalPages > 1 ? (
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={pageHref(page - 1)}>Previous</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Previous
+              </Button>
+            )}
+            {page < totalPages ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={pageHref(page + 1)}>Next</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Next
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

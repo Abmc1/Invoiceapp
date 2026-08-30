@@ -321,6 +321,9 @@ export interface InvoiceListFilters {
   dateTo?: Date;
   /** When false (default), archived invoices are hidden. When true, both archived and active are shown. */
   includeArchived?: boolean;
+  /** 1-based. Only applied when set — omitting it (the default) returns every matching row, unpaginated. */
+  page?: number;
+  pageSize?: number;
 }
 
 /**
@@ -330,7 +333,7 @@ export interface InvoiceListFilters {
  */
 const overdueExpr = sql<boolean>`${invoices.status} in ('SENT','PARTIALLY_PAID') and ${invoices.dueDate} < now()`;
 
-export async function listInvoices(filters: InvoiceListFilters = {}) {
+function buildInvoiceConditions(filters: InvoiceListFilters) {
   const conditions = [];
 
   if (filters.status && filters.status !== "ALL") {
@@ -357,7 +360,13 @@ export async function listInvoices(filters: InvoiceListFilters = {}) {
     );
   }
 
-  const rows = await db
+  return conditions;
+}
+
+export async function listInvoices(filters: InvoiceListFilters = {}) {
+  const conditions = buildInvoiceConditions(filters);
+
+  const baseQuery = db
     .select({
       invoice: invoices,
       client: clients,
@@ -368,7 +377,25 @@ export async function listInvoices(filters: InvoiceListFilters = {}) {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(invoices.issueDate));
 
-  return rows;
+  if (filters.pageSize) {
+    const page = Math.max(1, filters.page ?? 1);
+    return baseQuery.limit(filters.pageSize).offset((page - 1) * filters.pageSize);
+  }
+
+  return baseQuery;
+}
+
+/** Total count of invoices matching the same filters `listInvoices` would use, ignoring page/pageSize — pair with `listInvoices` to render pagination controls. */
+export async function countInvoices(filters: InvoiceListFilters = {}) {
+  const conditions = buildInvoiceConditions(filters);
+
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(invoices)
+    .innerJoin(clients, eq(invoices.clientId, clients.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  return row?.count ?? 0;
 }
 
 export async function getInvoiceById(invoiceId: string) {

@@ -14,6 +14,7 @@ import {
   deleteDraftInvoice,
   setInvoiceArchived,
   listInvoices,
+  countInvoices,
   runAutoArchive,
 } from "./invoices";
 import { recordPayment } from "./payments";
@@ -525,6 +526,37 @@ describe("auto-archiving", () => {
 
     expect((await runAutoArchive()).archived).toBe(1);
     expect((await runAutoArchive()).archived).toBe(0);
+  });
+});
+
+describe("pagination", () => {
+  it("paginates without duplicates or gaps, and countInvoices matches the unpaginated total", async () => {
+    const { user, client } = await makeInvoiceInputs();
+
+    for (let i = 0; i < 5; i++) {
+      await createInvoice({
+        clientId: client.id,
+        issueDate: new Date(),
+        dueDate: new Date(Date.now() + 86400000),
+        currency: "EUR",
+        items: [{ description: "Coaching", quantity: 1, unit: "session", unitPrice: 500 }],
+        createdByUserId: user.id,
+      });
+    }
+
+    const total = await countInvoices();
+    expect(total).toBe(5);
+
+    const pageOne = await listInvoices({ page: 1, pageSize: 2 });
+    const pageTwo = await listInvoices({ page: 2, pageSize: 2 });
+    const pageThree = await listInvoices({ page: 3, pageSize: 2 });
+
+    expect(pageOne).toHaveLength(2);
+    expect(pageTwo).toHaveLength(2);
+    expect(pageThree).toHaveLength(1);
+
+    const seenIds = new Set([...pageOne, ...pageTwo, ...pageThree].map((r) => r.invoice.id));
+    expect(seenIds.size).toBe(5);
   });
 });
 
