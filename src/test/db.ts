@@ -28,6 +28,8 @@ const TABLES = [
   "payments",
   "invoice_items",
   "invoices",
+  "recurring_invoice_items",
+  "recurring_invoices",
   "services",
   "clients",
   "sessions",

@@ -3,13 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, FileText, Users, Briefcase, Wallet, BarChart3, Settings, LogOut } from "lucide-react";
+import { Menu, X, LayoutDashboard, FileText, Users, Briefcase, Wallet, BarChart3, Settings, LogOut, Repeat } from "lucide-react";
 import { logoutAction } from "@/app/(app)/actions";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/recurring", label: "Recurring", icon: Repeat },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/services", label: "Services", icon: Briefcase },
   { href: "/payments", label: "Payments", icon: Wallet },

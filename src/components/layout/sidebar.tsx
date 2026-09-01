@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Repeat,
 } from "lucide-react";
 import { logoutAction } from "@/app/(app)/actions";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/recurring", label: "Recurring", icon: Repeat },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/services", label: "Services", icon: Briefcase },
   { href: "/payments", label: "Payments", icon: Wallet },
